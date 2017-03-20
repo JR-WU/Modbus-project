@@ -1,27 +1,25 @@
-#include <stdio.h>
-#include <stdlib.h> 
-#include <string.h> 
-#include <ctype.h> 
-#include <errno.h> 
-#include <malloc.h>
-#include <stdarg.h> 
-#include <fcntl.h>
-#include <sys/types.h> 
-#include <sys/socket.h> 
-#include <netdb.h> 
-#include <unistd.h> 
-#include <netinet/in.h> 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <arpa/inet.h> 
+#include <sys/time.h>
+#include <time.h>
+#include <arpa/inet.h>
 #include <sys/ioctl.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include <pthread.h>
 #include <linux/tcp.h>
+
 #include "open62541.h"
 
 #define opc_port 6666
 #define S_PORT 5888
 #define R_PORT 5222
 #define BACKLOG 7
+#define YES 1
 UA_Server *server;
 typedef struct _DATA_SOURCE{
 	char* name;
@@ -35,6 +33,7 @@ struct argument{
 };
 struct argument sendOriginalDataFD;
 struct argument recvDataFD;
+int ret = 0;
 DATA_SOURCE ANALOY[] = {
 	{"1000", 0},
 	{"1001", 0},
@@ -55,26 +54,42 @@ static void stopHandler(int sig) {
 	running = false;
 }
 
-void create_socket(int sockfd, struct sockaddr_in *local, int portnum){
-	if ((sockfd = socket(PF_INET6, SOCK_STREAM, 0)) == -1)
+void creat_socket(int *sockfd, struct sockaddr_in *local, int portnum){
+	int err;
+	int optval = YES;
+	int nodelay = YES;
+	
+	if ((*sockfd = socket(PF_INET6, SOCK_STREAM, 0)) == -1){
 		perror("socket");  
         exit(1);  
-    } else  
-        printf("socket created/n");
+    } 
+	else  printf("socket created/n");
+	
+	err = setsockopt(*sockfd,SOL_SOCKET,SO_REUSEADDR,&optval,sizeof(optval));
+	if(err){
+		perror("setsockopt");
+	}
+	err = setsockopt(*sockfd,IPPROTO_TCP,TCP_NODELAY,&nodelay,sizeof(nodelay));
+	if(err){
+		perror("setsockopt");
+	}
+	
 	memset(local, 0, sizeof(struct sockaddr_in));
 	local->sin_family = AF_INET;
 	local->sin_addr.s_addr = htonl(INADDR_ANY);
 	local->sin_port = htons(portnum);
-	if (bind(sockfd, (struct sockaddr *) &local, sizeof(struct sockaddr_in))<-1）{
+	if ( bind(*sockfd, (struct sockaddr*)local, sizeof(struct sockaddr_in))<0 )
+	{
 		perror("bind");  
         exit(1);  
-    } else  
+    } 
+	else  
         printf("binded/n");
-	}
-	if (listen(sockfd, BACKLOG) < 0) {  
+	if (listen(*sockfd, BACKLOG) < 0) {  
         perror("listen");  
         exit(1);  
-    } else  
+    } 
+	else  
         printf("begin listen/n"); 
 }
 
@@ -85,7 +100,7 @@ void creatserver(struct argument *p){
 	struct sockaddr_in from;
 	unsigned int len = sizeof(from);
 
-	creat_server_sockfd(serverfd,&local_addr_s,p->port);
+	creat_sockket(&serverfd,&local_addr_s,p->port);
 
 	while(1)
 	{
@@ -157,7 +172,7 @@ void add_dataSource_to_opcServer()
 	for(i=0;i<sizeof(ANALOY)/sizeof(DATA_SOURCE);i++) {
 		UA_DataSource dateDataSource = (UA_DataSource) {.handle = NULL, .read = readDataSource, 
 		.write = writeDataSource};
-		
+	
 		UA_VariableAttributes *attr = UA_VariableAttributes_new();
     	UA_VariableAttributes_init(attr);
 			UA_Int32 intData = (UA_Int32)ANALOY[i].state;
