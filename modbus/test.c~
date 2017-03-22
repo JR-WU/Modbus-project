@@ -4,70 +4,54 @@
 #include "modbus/modbus.h"
 #include <pthread.h>
 #include <unistd.h>
-#define uint16_t tab_reg[128]={0};
-int Modbus_read(*p)
-{   while(1)
+#include <string.h>
+uint16_t tab_reg[1000000]={0};
+modbus_t *ctx;
+void Modbus_read()
+{  int regs1=0;
+   while(1)
     {
-    int regs1=modbus_read_input_registers(p,512,16,tab_reg);//function code is 0x04
-    if(regs1==-1)
-   {printf("Wrong!");
-    return -1;
-   }
-   printfdata(regs1);
+   regs1=modbus_read_registers(ctx,512,16,tab_reg);//function code is 0x04
 }
 }
-int Modbus_write(*p)
+void Modbus_write()
 {   int a;
     int lost;
     int data;
     char b;
-    printf("Let's begin to write register!\n");
-    Re:printf("Please enter the number of register:\n");
+    printf("Let's begin to write a register!\n");
+    printf("Please enter the number of register:\n");
     lost=scanf("%d",&a);
     if(lost==EOF){
         perror("Wrong Input");
     }
-    printf("\nPlease enter the data for register:");
-    Re1:lost=scanf("%d",&data);
-    if(lost==EOF){
-        perror("Wrong Input");
-    }
-    if(data==0xAA||data==0x55)
+    printf("Please enter the data for register:\n");
+    while(1){
+    scanf("%d",&data);
+    if(data==1||data==0)
     {
-        int modbus_write_register(p, a, data);
+       modbus_write_register(ctx,a,data);
+       return;
     }
     else{
-        printf("Wrong input");
-        goto Re;
+        printf("Wrong input\n");
     }
-    printf("confirm?(Y/N)\n");
-    Re2:scanf("%c",&b);
-    if(b=='Y')
-    {
-        return 1;
-    }
-    else if(b=='N')
-    {
-        goto Re1;
-    }
-    else{
-        printf("Please enter Y or N!!\n");
-        goto Re2;
     }
 }
-int Initialization(*p)
+int Initialization()
 {
     int j=0;
-    p = modbus_new_tcp("192.168.198.1", 6666);
-    if (p == NULL) {
+    ctx = modbus_new_tcp("192.168.198.1", 6666);
+    if (ctx == NULL) {
        fprintf(stderr, "Unable to allocate libmodbus context\n");
-       return -1;
+       return;
+
     }
-    modbus_set_slave(p,0x01);
-    modbus_connect(p);
-   if (modbus_connect(p) == -1) {
+    modbus_set_slave(ctx,0x01);
+    modbus_connect(ctx);
+   if (modbus_connect(ctx) == -1) {
        fprintf(stderr, "Connection failed: %s\n", modbus_strerror(errno));
-       modbus_free(p);
+       modbus_free(ctx);
        return -1;
 }
    else {printf("The Modbus Client is online\n");}
@@ -75,46 +59,50 @@ int Initialization(*p)
     struct timeval t;
       t.tv_sec=0;
       t.tv_usec=1000000;
-    modbus_set_response_timeout(p,t.tv_sec,t.tv_usec);
+    modbus_set_response_timeout(ctx,t.tv_sec,t.tv_usec);
 }
-int printfdata(int a)
+void printfdata()
 {
-    int j=0;
     int i=0;
-    usleep(500000);
-    printf("%d:\n",j);
-    printf("The number of input registers is:%d\n",a);
     while(i<=16)
    {  if(i==16)
       {printf("%d\n",tab_reg[i]); break;}
       printf("%d ",tab_reg[i]);
       i++;
    }
-   usleep(500000);
-   j++;
-
 }
 void main()
-{   char *s;
-    modbus_t *ctx;
+{
+    char *s;
+    s=(char*)malloc(sizeof(char)*1000);
+    /**
+    char s[1000];
+    **/
+    int ret;
     pthread_t write;
     pthread_t read;
-    Initialization(ctx);
-    ret=pthread_create(&read,NULL,(int *) Modbus_read,ctx);
-　　 if(ret!=0) {
-　　　　printf ("Create pthread error!\n");
-　　　　exit (1);
-　　}
+    Initialization();
+    ret=pthread_create(&read,NULL,(void*)Modbus_read,NULL);
+    if(ret!=0){
+    printf("Create pthread error!\n");
+    exit(1);
+}
    while(1)
    {
-       scanf("&s",*s);
-       if(*s=="change")
+       scanf("%s",s);
+       if(strcmp(s,"change")==0)
        {
-           pthread_create(&write,NULL,(int *) Modbus_write,ctx);
+        Modbus_write();
+        pthread_create(&read,NULL,(void*)Modbus_read,NULL);
        }
-       else {
-        printf("If you want to change data please type change\n");
+       else
+       if(strcmp(s,"print")==0)
+        {printfdata();}
+        else
+            {
+            printf("please type in change or print\n");
+        }
        }
    }
 
-}
+

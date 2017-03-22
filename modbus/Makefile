@@ -4,6 +4,6 @@
 CC=gcc
 TARGET=SIMPLECLIENT
 TARGET:test.c
-	gcc test.c -o SIMPLECLIENT -lmodbus
-CLEAN:
-	rm -f SIMPLECILENT SIMPLECLIENT.o
+	gcc -g test.c -o SIMPLECLIENT -lmodbus -lpthread 
+clean:
+	rm -f SIMPLECLIENT SIMPLECLIENT.o
