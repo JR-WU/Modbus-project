@@ -6,12 +6,12 @@
 #include <unistd.h>
 #include <string.h>
 uint16_t tab_reg[1000000]={0};
-modbus_t *ctx;
+modbus_t *ctx;//定义modbus的接口
 void Modbus_read()
 {  int regs1=0;
    while(1)
     {
-   regs1=modbus_read_registers(ctx,512,16,tab_reg);//function code is 0x04
+   regs1=modbus_read_registers(ctx,512,16,tab_reg);//function code is 0x03读取保持寄存器
 }
 }
 void Modbus_write()
@@ -30,7 +30,7 @@ void Modbus_write()
     scanf("%d",&data);
     if(data==1||data==0)
     {
-       modbus_write_register(ctx,a,data);
+       modbus_write_register(ctx,a,data);//写数据，function code is 0x06
        return;
     }
     else{
@@ -41,14 +41,14 @@ void Modbus_write()
 int Initialization()
 {
     int j=0;
-    ctx = modbus_new_tcp("192.168.198.1", 6666);
+    ctx = modbus_new_tcp("192.168.198.1", 6666);//为ctx确定ip和端口号
     if (ctx == NULL) {
        fprintf(stderr, "Unable to allocate libmodbus context\n");
        return;
 
     }
-    modbus_set_slave(ctx,0x01);
-    modbus_connect(ctx);
+    modbus_set_slave(ctx,0x01);//设定slave号
+    modbus_connect(ctx);//连接服务器
    if (modbus_connect(ctx) == -1) {
        fprintf(stderr, "Connection failed: %s\n", modbus_strerror(errno));
        modbus_free(ctx);
@@ -59,7 +59,7 @@ int Initialization()
     struct timeval t;
       t.tv_sec=0;
       t.tv_usec=1000000;
-    modbus_set_response_timeout(ctx,t.tv_sec,t.tv_usec);
+    modbus_set_response_timeout(ctx,t.tv_sec,t.tv_usec);//响应时间10s
 }
 void printfdata()
 {
@@ -82,7 +82,7 @@ void main()
     pthread_t write;
     pthread_t read;
     Initialization();
-    ret=pthread_create(&read,NULL,(void*)Modbus_read,NULL);
+    ret=pthread_create(&read,NULL,(void*)Modbus_read,NULL);//建立读线程
     if(ret!=0){
     printf("Create pthread error!\n");
     exit(1);
