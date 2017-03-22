@@ -23,7 +23,9 @@
 UA_Server *server;
 typedef struct _DATA_SOURCE{
 	char* name;
+	unsigned char type;   // 1 stand for shuzi, 2 stand for moni.
 	int state;
+	int data;
 }DATA_SOURCE;
 
 struct argument{
@@ -34,17 +36,17 @@ struct argument{
 struct argument sendOriginalDataFD;
 struct argument recvDataFD;
 int ret = 0;
-DATA_SOURCE ANALOY[] = {
-	{"1000", 0},
-	{"1001", 0},
-	{"1002", 1},
-	{"1003", 0},
-	{"1004", 0},
-	{"1005", 0},
-	{"1006", 1},
-	{"1007", 0},
-	{"1008", 0},
-	{"1009", 0}
+DATA_SOURCE source[] = {
+	{"1000", 1,0,0},
+	{"1001", 1,0,0},
+	{"1002", 1,1,0},
+	{"1003", 1,1,0},
+	{"1004", 1,0,0},
+	{"aaaa", 2,0,10},
+	{"bbbb", 2,0,14},
+	{"cccc", 2,0,21},
+	{"dddd", 2,0,20},
+	{"eeee", 2,0,33}
 };
 
 #include <signal.h>
@@ -53,7 +55,7 @@ UA_Boolean running = true;
 static void stopHandler(int sig) {    
 	running = false;
 }
-
+#if 0
 void creat_socket(int *sockfd, struct sockaddr_in *local, int portnum){
 	int err;
 	int optval = YES;
@@ -100,7 +102,7 @@ void creatserver(struct argument *p){
 	struct sockaddr_in from;
 	unsigned int len = sizeof(from);
 
-	creat_sockket(&serverfd,&local_addr_s,p->port);
+	creat_socket(&serverfd,&local_addr_s,p->port);
 
 	while(1)
 	{
@@ -115,15 +117,21 @@ void creatserver(struct argument *p){
 		printf("a IPv4 client from:%s\n",inet_ntop(AF_INET, &(from.sin_addr), addrstr, INET_ADDRSTRLEN));
 	}
 }
+#endif
 
-void* nodeidFindData(const UA_NodeId nodeId) 
+void* nodeIdFindData(const UA_NodeId nodeId) 
 {
 	int i;
-	for(i=0;i<sizeof(ANALOY)/sizeof(DATA_SOURCE);i++) 
+	for(i=0;i<sizeof(source)/sizeof(DATA_SOURCE);i++) 
 	{
-		if(strncmp((char*)nodeId.identifier.string.data, ANALOY[i].name, strlen(ANALOY[i].name)) == 0) 
+		if(strncmp((char*)nodeId.identifier.string.data, source[i].name, strlen(source[i].name)) == 0) 
 		{
-				return &ANALOY[i].state;			
+			if(source[i].type == 1) {
+				return &source[i].state;
+			}
+			else if(source[i].type == 2) {
+				return &source[i].data;
+			}			
 		}
 	}
 	printf("not find:%s!\n",nodeId.identifier.string.data);
@@ -133,23 +141,23 @@ void* nodeidFindData(const UA_NodeId nodeId)
 /*读数据*/
 static UA_StatusCode
 readDataSource(void *handle, const UA_NodeId nodeId, UA_Boolean sourceTimeStamp,
-             const UA_NumericRange *range, UA_DataValue *value) {
+             const UA_NumericRange *range, UA_DataValue *dataValue) {
 	if(range) {
-        value->hasStatus = true;
-        value->status = UA_STATUSCODE_BADINDEXRANGEINVALID;
+        dataValue->hasStatus = true;
+        dataValue->status = UA_STATUSCODE_BADINDEXRANGEINVALID;
         return UA_STATUSCODE_GOOD;
     }
-	UA_UInt32 temp;
-	if(nodeidFindData(nodeId) != NULL)
-		temp = *(UA_UInt32*)nodeidFindData(nodeId);
+	UA_Int32 temp;
+	if(nodeIdFindData(nodeId) != NULL)
+		temp = *(UA_Int32*)nodeIdFindData(nodeId);
 	else 
 		temp = 0;
-	value->sourceTimestamp = UA_DateTime_now();
-	value->hasValue = true;
-	value->hasSourceTimestamp = true;
-    UA_Variant_setScalarCopy(&value->value, &temp, &UA_TYPES[UA_TYPES_INT32]);
+	dataValue->sourceTimestamp = UA_DateTime_now();
+	dataValue->hasValue = true;
+	dataValue->hasSourceTimestamp = true;
+    UA_Variant_setScalarCopy(&dataValue->value, &temp, &UA_TYPES[UA_TYPES_INT32]);
 //	printf("Node read %s\n", nodeId.identifier.string.data);
-//	printf("read value %i\n", temp);
+//	printf("read Value %i\n", temp);
     return UA_STATUSCODE_GOOD;
 }
 
@@ -169,24 +177,40 @@ writeDataSource(void *handle, const UA_NodeId nodeId, const UA_Variant *data,
 void add_dataSource_to_opcServer()
 {
 	int i;
-	for(i=0;i<sizeof(ANALOY)/sizeof(DATA_SOURCE);i++) {
-		UA_DataSource dateDataSource = (UA_DataSource) {.handle = NULL, .read = readDataSource, 
-		.write = writeDataSource};
-	
-		UA_VariableAttributes *attr = UA_VariableAttributes_new();
-    	UA_VariableAttributes_init(attr);
-			UA_Int32 intData = (UA_Int32)ANALOY[i].state;
-		UA_Variant_setScalar(&attr->value, &intData, &UA_TYPES[UA_TYPES_INT32]);
-		attr->description = UA_LOCALIZEDTEXT("en_US",ANALOY[i].name);
-	    attr->displayName = UA_LOCALIZEDTEXT("en_US",ANALOY[i].name);
-		attr->accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
-	    UA_NodeId myIntegerNodeId = UA_NODEID_STRING(1, ANALOY[i].name);
-	    UA_QualifiedName myIntegerName = UA_QUALIFIEDNAME(1, ANALOY[i].name);
-	    UA_NodeId parentNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
-	    UA_NodeId parentReferenceNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES);
-		UA_Server_addDataSourceVariableNode(server, myIntegerNodeId,parentNodeId,
-	                              					parentReferenceNodeId, myIntegerName,
-                                                UA_NODEID_NULL, *attr, dateDataSource, NULL);                                     
+	UA_UInt32 m=10000,n=20000;
+	for(i=0; i<sizeof(source)/sizeof(DATA_SOURCE);i++) {
+		if(source[i].type == 1) {
+			m++;
+			UA_DataSource dateDataSource = (UA_DataSource) {.handle = NULL, .read = readDataSource, 
+															.write = writeDataSource};
+			UA_VariableAttributes attr;
+			UA_VariableAttributes_init(&attr);
+			attr.description =  UA_LOCALIZEDTEXT("en_US", source[i].name);
+			attr.displayName =  UA_LOCALIZEDTEXT("en_US", source[i].name);
+			attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
+			
+			UA_Int32 intData = (UA_Int32)source[i].state;
+			UA_Variant_setScalarCopy(&attr.value, &intData, &UA_TYPES[UA_TYPES_INT32]);
+			UA_Server_addVariableNode(server, UA_NODEID_NUMERIC(1, m),
+                              UA_NODEID_NUMERIC(1, 10000), UA_NODEID_NUMERIC(0, UA_NS0ID_HASPROPERTY),
+                              UA_QUALIFIEDNAME(1, source[i].name), UA_NODEID_NULL, attr, NULL, NULL);
+		}
+		if(source[i].type == 2) {
+			n++;
+			UA_DataSource dateDataSource = (UA_DataSource) {.handle = NULL, .read = readDataSource, 
+															.write = writeDataSource};
+			UA_VariableAttributes attr;
+			UA_VariableAttributes_init(&attr);
+			attr.description =  UA_LOCALIZEDTEXT("en_US", source[i].name);
+			attr.displayName =  UA_LOCALIZEDTEXT("en_US", source[i].name);
+			attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
+			
+			UA_Int32 intState = (UA_Int32)source[i].data;
+			UA_Variant_setScalar(&attr.value, &intState, &UA_TYPES[UA_TYPES_INT32]);
+			UA_Server_addVariableNode(server, UA_NODEID_NUMERIC(1, n),
+                              UA_NODEID_NUMERIC(1, 20000), UA_NODEID_NUMERIC(0, UA_NS0ID_HASNOTIFIER),
+                              UA_QUALIFIEDNAME(1, source[i].name), UA_NODEID_NULL, attr, NULL, NULL);	
+		}										
 	}
 }
 
@@ -198,29 +222,44 @@ void handle_opcua_server(void * arg){
     UA_ServerNetworkLayer nl = UA_ServerNetworkLayerTCP(UA_ConnectionConfig_standard, opc_port);
 	config.networkLayers = &nl;
     config.networkLayersSize = 1;
-		server = UA_Server_new(config);
+	server = UA_Server_new(config);
 
-	/* add a variable node to the address space */
-    UA_VariableAttributes attr;
-    UA_VariableAttributes_init(&attr);
-    UA_Int32 myInteger = 42;
-    UA_Variant_setScalar(&attr.value, &myInteger, &UA_TYPES[UA_TYPES_INT32]);
-    attr.description = UA_LOCALIZEDTEXT("en_US","the answer");
-    attr.displayName = UA_LOCALIZEDTEXT("en_US","the answer");
+	/* Create a rudimentary objectType*/
+	UA_ObjectTypeAttributes otAttr;
+    UA_ObjectTypeAttributes_init(&otAttr);						  						  
+	otAttr.description = UA_LOCALIZEDTEXT("en_US", "the answer");
+    otAttr.displayName = UA_LOCALIZEDTEXT("en_US", "the answer");
+    UA_Server_addObjectTypeNode(server, UA_NODEID_NUMERIC(1, 10000),
+                                UA_NODEID_NUMERIC(0, UA_NS0ID_BASEOBJECTTYPE), UA_NODEID_NUMERIC(0, UA_NS0ID_HASSUBTYPE),
+                                UA_QUALIFIEDNAME(1, "ANALOG"), otAttr, NULL, NULL);						  
+		
+	
+		
+	UA_ObjectTypeAttributes_init(&otAttr);
+    otAttr.description = UA_LOCALIZEDTEXT("en_US", "the answer");
+    otAttr.displayName = UA_LOCALIZEDTEXT("en_US", "the answer");
+    UA_Server_addObjectTypeNode(server, UA_NODEID_NUMERIC(1, 20000),
+                                UA_NODEID_NUMERIC(0, UA_NS0ID_BASEOBJECTTYPE), UA_NODEID_NUMERIC(0, UA_NS0ID_HASSUBTYPE),
+                                UA_QUALIFIEDNAME(1, "DIGITAL"), otAttr, NULL, NULL);						  
+		
+	add_dataSource_to_opcServer();					  
 
+	/*分模拟量数字量*/
+	UA_ObjectAttributes oAttr;
+	UA_ObjectAttributes_init(&oAttr);
+    oAttr.description = UA_LOCALIZEDTEXT("en_US", "A DATA");
+    oAttr.displayName = UA_LOCALIZEDTEXT("en_US", "MONI");
+    UA_Server_addObjectNode(server, UA_NODEID_NUMERIC(1, 0),
+                            UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
+							UA_QUALIFIEDNAME(1, "MONI"), UA_NODEID_NUMERIC(1, 10000), oAttr, NULL, NULL);
 	
-	/* Add the variable node to the information model */
-    UA_NodeId myIntegerNodeId = UA_NODEID_STRING(1, "the.answer");
-    UA_QualifiedName myIntegerName = UA_QUALIFIEDNAME(1, "the answer");
-	
-		UA_DataSource dateDataSource = (UA_DataSource) {.handle =&myInteger, .read = readDataSource, 
-			.write = writeDataSource};
-    UA_NodeId parentNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
-    UA_NodeId parentReferenceNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES);
-    UA_Server_addVariableNode(server, myIntegerNodeId, parentNodeId,
-                              parentReferenceNodeId, myIntegerName,
-                              UA_NODEID_NULL, attr, NULL, NULL);
-//		add_dataSource_to_opcServer();
+	UA_ObjectAttributes_init(&oAttr);
+    oAttr.description = UA_LOCALIZEDTEXT("en_US", "A DATA");
+    oAttr.displayName = UA_LOCALIZEDTEXT("en_US", "SHUZI");
+    UA_Server_addObjectNode(server, UA_NODEID_NUMERIC(1, 0),
+                            UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER), UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
+                            UA_QUALIFIEDNAME(1, "SHUZI"), UA_NODEID_NUMERIC(1, 20000), oAttr, NULL, NULL);
+
     UA_Server_run(server, &running);
 	UA_Server_delete(server);
     nl.deleteMembers(&nl);  
