@@ -1,9 +1,10 @@
 # depslib dependency file v1.0
-1489672481 source:/home/tl/Desktop/project2/modbus/test.c
+1490234477 source:/home/tl/Desktop/project2/modbus/test.c
 	<stdio.h>
 	<stdlib.h>
 	<errno.h>
 	"modbus/modbus.h"
 	<pthread.h>
 	<unistd.h>
+	<string.h>
 
