@@ -73,6 +73,7 @@ static void stopHandler(int sig) {
 	running = false;
 }
 
+/*通过名字读数据*/
 void* nodeIdFindData(const UA_NodeId nodeId) 
 {
 	int i;
@@ -85,6 +86,28 @@ void* nodeIdFindData(const UA_NodeId nodeId)
 			}
 			else if(source[i].type == 3) {
 				return &source[i].data;
+			}			
+		}
+	}
+	printf("not find:%s!\n",nodeId.identifier.string.data);
+	return NULL;
+}
+
+/*通过名字写数据*/
+void* nodeIdwriteData(const UA_NodeId nodeId, const UA_Variant *data) 
+{
+	int i;
+	for(i=0;i<sizeof(source)/sizeof(DATA_SOURCE);i++) 
+	{
+		if(strncmp((char*)nodeId.identifier.string.data, source[i].name, strlen(source[i].name)) == 0) 
+		{
+			if(source[i].type != 3) {
+				source[i].state=data->data;
+				return &source[i].state;
+			}
+			else if(source[i].type == 3) {
+				 source[i].data=data->data;
+				 return &source[i].data;
 			}			
 		}
 	}
@@ -118,14 +141,17 @@ readDataSource(void *handle, const UA_NodeId nodeId, UA_Boolean sourceTimeStamp,
 /*写数据*/
 static UA_StatusCode
 writeDataSource(void *handle, const UA_NodeId nodeId, const UA_Variant *data, 
-		 const UA_NumericRange *range) {
-		 if(UA_Variant_isScalar(data) && data->type == &UA_TYPES[UA_TYPES_INT32] && data->data){
-         *(UA_UInt32*)handle = *(UA_UInt32*)data->data;
-    }
-//		*ANALOY->state=*handle;
+			const UA_NumericRange *range) {
+				UA_Int32 temp;
+	if(UA_Variant_isScalar(data) && data->type == &UA_TYPES[UA_TYPES_INT32] && data->data)
+	{
+		if(nodeIdwriteData(nodeId, data)!=NULL)
+			temp = *(UA_UInt32*)data->data;
+	}
+//	*ANALOY->state=*handle;
 	printf("Node written %s\n", nodeId.identifier.string.data);
-	printf("written value %d\n",  *(UA_UInt32*)handle);
-	     return UA_STATUSCODE_GOOD;		
+	printf("written value %d\n",  temp);
+    return UA_STATUSCODE_GOOD;		
 }
 			 
 void add_dataSource_to_opcServer()
@@ -138,8 +164,8 @@ void add_dataSource_to_opcServer()
 		
 		UA_VariableAttributes *attr = UA_VariableAttributes_new();
     	UA_VariableAttributes_init(attr);
-			UA_Int32 intState = (UA_Int32)source[i].state;
-		UA_Variant_setScalar(&attr->value, &intState, &UA_TYPES[UA_TYPES_INT32]);
+//			UA_Int32 intState = (UA_Int32)source[i].state;
+//		UA_Variant_setScalar(&attr->value, &intState, &UA_TYPES[UA_TYPES_INT32]);
 		attr->description = UA_LOCALIZEDTEXT("en_US",source[i].name);
 	    attr->displayName = UA_LOCALIZEDTEXT("en_US",source[i].name);
 		attr->accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
@@ -157,8 +183,8 @@ void add_dataSource_to_opcServer()
 		
 		UA_VariableAttributes *attr = UA_VariableAttributes_new();
     	UA_VariableAttributes_init(attr);
-			UA_Int32 intState = (UA_Int32)source[i].state;
-		UA_Variant_setScalar(&attr->value, &intState, &UA_TYPES[UA_TYPES_INT32]);
+//			UA_Int32 intState = (UA_Int32)source[i].state;
+//		UA_Variant_setScalar(&attr->value, &intState, &UA_TYPES[UA_TYPES_INT32]);
 		attr->description = UA_LOCALIZEDTEXT("en_US",source[i].name);
 	    attr->displayName = UA_LOCALIZEDTEXT("en_US",source[i].name);
 		attr->accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
@@ -176,8 +202,8 @@ void add_dataSource_to_opcServer()
 		
 		UA_VariableAttributes *attr = UA_VariableAttributes_new();
     	UA_VariableAttributes_init(attr);
-			UA_Int32 intData = (UA_Int32)source[i].data;
-		UA_Variant_setScalar(&attr->value, &intData, &UA_TYPES[UA_TYPES_INT32]);
+//			UA_Int32 intData = (UA_Int32)source[i].data;
+//		UA_Variant_setScalar(&attr->value, &intData, &UA_TYPES[UA_TYPES_INT32]);
 		attr->description = UA_LOCALIZEDTEXT("en_US",source[i].name);
 	    attr->displayName = UA_LOCALIZEDTEXT("en_US",source[i].name);
 		attr->accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;

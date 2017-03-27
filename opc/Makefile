@@ -1,6 +1,6 @@
 TARGET = server
 OBJECT = test.o open62541.o
-CFLAGS = -g -std=c99 -lrt
+CFLAGS = -g -std=c99 -lrt -rdynamic
 $(TARGET):$(OBJECT)
 	gcc -o $@ $^ $(CFLAGS) -lpthread
 	
