@@ -99,14 +99,14 @@ void* nodeIdwriteData(const UA_NodeId nodeId, const UA_Variant *data)
 	int i;
 	for(i=0;i<sizeof(source)/sizeof(DATA_SOURCE);i++) 
 	{
-		if(strncmp((char*)nodeId.identifier.string.data, source[i].name, strlen(source[i].name)) == 0) 
+		if(strncmp(source[i].name, (char*)nodeId.identifier.string.data, strlen(source[i].name)) == 0) 
 		{
 			if(source[i].type != 3) {
-				source[i].state=data->data;
+				source[i].state=*(int*)data->data;
 				return &source[i].state;
 			}
 			else if(source[i].type == 3) {
-				 source[i].data=data->data;
+				 source[i].data=*(int*)data->data;
 				 return &source[i].data;
 			}			
 		}
@@ -179,7 +179,7 @@ void add_dataSource_to_opcServer()
 		}
 		if(source[i].type == 2) {
 					UA_DataSource dateDataSource = (UA_DataSource) {.handle = NULL, .read = readDataSource, 
-		.write = NULL};
+		.write = writeDataSource};
 		
 		UA_VariableAttributes *attr = UA_VariableAttributes_new();
     	UA_VariableAttributes_init(attr);
