@@ -5,70 +5,128 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <string.h>
+#define WRONG 2
+#define input 512
+#define output 768
+#define analog 640
 uint16_t tab_reg[1000000]={0};
-int NO=768;
+unsigned char tab_ana[1000000]={0};
+modbus_t *ctx;
 typedef struct _DATA_SOURCE{
 	char* name;
-	unsigned char type;   // 1 stand for digital, 2 stand for analog.
-	int state;
-	int data;
+	unsigned char type;   // 1 stand for input, 2 stand for output,3 stand for analog.
+	int state;//only two states,one is 0xAA,another is 0x55.
+	unsigned char datah8;//only for analog.High 8 bit.
+	unsigned char datal8;//Low 8 bit.
 }DATA_SOURCE;
 DATA_SOURCE source[] = {
-	{"DI0", 1,0,0},
-	{"DI1", 1,0,0},
-	{"DI2", 1,0,0},
-	{"DI3", 1,0,0},
-	{"DI4", 1,0,0},
-	{"DI5", 1,0,0},
-	{"DI6", 1,0,0},
-	{"DI7", 1,0,0},
-	{"DI8", 1,0,0},
-	{"DI9", 1,0,0},
-	{"DI10", 1,0,0},
-	{"DI11", 1,0,0},
-	{"DI12", 1,0,0},
-	{"DI13", 1,0,0},
-	{"DI14", 1,0,0},
-	{"DI15", 1,0,0},
-	{"DO0", 1,0,0},
-	{"DO1", 1,0,0},
-	{"DO2", 1,0,0},
-	{"DO3", 1,0,0},
-	{"DO4", 1,0,0},
-	{"DO5", 1,0,0},
-	{"DO6", 1,0,0},
-	{"DO7", 1,0,0},
-	{"DO8", 1,0,0},
-	{"DO9", 1,0,0},
-	{"DO10", 1,0,0},
-	{"DO11", 1,0,0},
-	{"DO12", 1,0,0},
-	{"DO13", 1,0,0},
-	{"DO14", 1,0,0},
-	{"DO15", 1,0,0},
-	{"aaaa", 2,0,10},
-	{"bbbb", 2,0,14},
-	{"cccc", 2,0,21},
-	{"dddd", 2,0,20},
-	{"eeee", 2,0,33}
+	{"DI000", 1,0,0},
+	{"DI001", 1,0,0},
+	{"DI002", 1,0,0},
+	{"DI003", 1,0,0},
+	{"DI004", 1,0,0},
+	{"DI005", 1,0,0},
+	{"DI006", 1,0,0},
+	{"DI007", 1,0,0},
+	{"DI008", 1,0,0},
+	{"DI009", 1,0,0},
+	{"DI010", 1,0,0},
+	{"DI011", 1,0,0},
+	{"DI012", 1,0,0},
+	{"DI013", 1,0,0},
+	{"DI014", 1,0,0},
+	{"DI015", 1,0,0},
+	{"DO000", 2,0,0},
+	{"DO001", 2,0,0},
+	{"DO002", 2,0,0},
+	{"DO003", 2,0,0},
+	{"DO004", 2,0,0},
+	{"DO005", 2,0,0},
+	{"DO006", 2,0,0},
+	{"DO007", 2,0,0},
+	{"DO008", 2,0,0},
+	{"DO009", 2,0,0},
+	{"DO010", 2,0,0},
+	{"DO011", 2,0,0},
+	{"DO012", 2,0,0},
+	{"DO013", 2,0,0},
+	{"DO014", 2,0,0},
+	{"DO015", 2,0,0},
+	{"AIO001", 3,0,0,0},
+	{"AIO002", 3,0,0,0},
+	{"AIO003", 3,0,0,0},
+	{"AIO004", 3,0,0,0}
 };
-modbus_t *ctx;
-void Modbus_read()
+void Modbus_read_DI()
 {
-   int i;
+   int i,j;
+   j=0;
    while(1)
     {
-    modbus_read_registers(ctx,512,16,tab_reg);//function code is 0x04
-   for(i=0;i<=16;i++)
+    modbus_read_registers(ctx,input,15,tab_reg);//function code is 0x04
+    modbus_read_registers(ctx,analog,3,tab_ana);//function code is 0x04
+   for(i=0;i<=15;i++)
    {
-       source[i].state=tab_reg[i];
+       if(tab_reg[i]==85)
+       {
+           source[i].state=0;
+       }
+       else if(tab_reg[i]==170)
+       {
+           source[i].state=1;
+       }
+       else
+       {
+           source[i].state=WRONG;
+       }
+   }
+   for(i=0;i<=7;i=i+2)
+   {
+       source[j+32].datah8=tab_ana[i];
+       source[j+32].datal8=tab_ana[i+1];
+       j++;
    }
 }
+return;
+}
+void Modbus_read_DO()
+{
+   int i;
+    modbus_read_registers(ctx,output,16,tab_reg);//function code is 0x04
+   for(i=0;i<=15;i++)
+   {
+       if(tab_reg[i]==85)
+       {
+           source[i+16].state=0;
+       }
+       else if(tab_reg[i]==170)
+       {
+           source[i+16].state=1;
+       }
+       else
+       {
+           source[i+16].state=WRONG;
+       }
+   }
+}
+void Modbus_write(int i)
+{   if(i>=16)
+    {
+        modbus_write_register(ctx,analog+i-16,source[i+16].data);
+        return;
+    }
+    else if(source[i+16].state==1)
+    {
+        modbus_write_register(ctx,output+i,0xAA);
+    }
+    else if(source[i+16].state==0)
+    {
+        modbus_write_register(ctx,output+i,0x55);
+    }
 }
 /**
 void Modbus_write(int i)
 {   int a=768;
-    /**
     int lost;
     int data;
     char b;
@@ -89,7 +147,7 @@ void Modbus_write(int i)
         printf("Wrong input\n");
     }
     }
- 
+
 }
 **/
 int Initialization()
@@ -101,7 +159,7 @@ int Initialization()
        return -1;
 
     }
-    modbus_set_slave(ctx,0x01);
+    modbus_set_slave(ctx,0x0001);
     modbus_connect(ctx);
    if (modbus_connect(ctx) == -1) {
        fprintf(stderr, "Connection failed: %s\n", modbus_strerror(errno));
@@ -135,16 +193,18 @@ int main()
     int ret;
     pthread_t read;
     Initialization();
-    ret=pthread_create(&read,NULL,(void*)Modbus_read,NULL);
+    Modbus_read_DO();
+    ret=pthread_create(&read,NULL,(void*)Modbus_read_DI,NULL);
     if(ret!=0){
     printf("Create pthread error!\n");
     exit(1);
 }
     int num[100],i;
-    for(i=0;i<=16;i++)
+    for(i=0;i<=15;i++)
     {
         num[i]=source[i+16].state;
     }
+
    while(1)
    {   /**
        scanf("%s",s);
@@ -162,12 +222,23 @@ int main()
         }
        }
        **/
-       for(i=0;i<=16;i++)
-       {
-           if(source[i+16].state!=num[i])
+       for(i=0;i<=19;i++)
+       {   /**
+           if(i>=16)
+            {
+                if(source[i+16].data!=num[i])
+                {
+                    Modbus_write(i);
+                    pthread_create(&read,NULL,(void*)Modbus_read_DI,NULL);
+                    num[i]=source[i+16].data;
+                    printfdata();
+                }
+            }
+            **/
+            if(source[i+16].state!=num[i])
            {
-                modbus_write_register(ctx,NO+i,source[i+16].state);
-                pthread_create(&read,NULL,(void*)Modbus_read,NULL);
+                Modbus_write(i);
+                pthread_create(&read,NULL,(void*)Modbus_read_DI,NULL);
                 num[i]=source[i+16].state;
                 printfdata();
            }
