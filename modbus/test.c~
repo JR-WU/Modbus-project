@@ -18,65 +18,62 @@ typedef struct _DATA_SOURCE{
 	char* name;
 	unsigned char type;// 1 stand for input, 2 stand for output,3 stand for analog.
 	int state;//only two states,one is 0xAA,another is 0x55.
-	unsigned char data[5];
+	unsigned char H8;
+	unsigned char L8;
 }DATA_SOURCE;
 DATA_SOURCE source[] = {
-	{"DI000", 1,0,{0}},
-	{"DI001", 1,0,{0}},
-	{"DI002", 1,0,{0}},
-	{"DI003", 1,0,{0}},
-	{"DI004", 1,0,{0}},
-	{"DI005", 1,0,{0}},
-	{"DI006", 1,0,{0}},
-	{"DI007", 1,0,{0}},
-	{"DI008", 1,0,{0}},
-	{"DI009", 1,0,{0}},
-	{"DI010", 1,0,{0}},
-	{"DI011", 1,0,{0}},
-	{"DI012", 1,0,{0}},
-	{"DI013", 1,0,{0}},
-	{"DI014", 1,0,{0}},
-	{"DI015", 1,0,{0}},
-	{"DO000", 2,0,{0}},
-	{"DO001", 2,0,{0}},
-	{"DO002", 2,0,{0}},
-	{"DO003", 2,0,{0}},
-	{"DO004", 2,0,{0}},
-	{"DO005", 2,0,{0}},
-	{"DO006", 2,0,{0}},
-	{"DO007", 2,0,{0}},
-	{"DO008", 2,0,{0}},
-	{"DO009", 2,0,{0}},
-	{"DO010", 2,0,{0}},
-	{"DO011", 2,0,{0}},
-	{"DO012", 2,0,{0}},
-	{"DO013", 2,0,{0}},
-	{"DO014", 2,0,{0}},
-	{"DO015", 2,0,{0}},
-	{"AIO001", 3,0,{0}},
-	{"AIO002", 3,0,{0}},
-	{"AIO003", 3,0,{0}},
-	{"AIO004", 3,0,{0}}
+	{"DI000", 1,0,0,0},
+	{"DI001", 1,0,0,0},
+	{"DI002", 1,0,0,0},
+	{"DI003", 1,0,0,0},
+	{"DI004", 1,0,0,0},
+	{"DI005", 1,0,0,0},
+	{"DI006", 1,0,0,0},
+	{"DI007", 1,0,0,0},
+	{"DI008", 1,0,0,0},
+	{"DI009", 1,0,0,0},
+	{"DI010", 1,0,0,0},
+	{"DI011", 1,0,0,0},
+	{"DI012", 1,0,0,0},
+	{"DI013", 1,0,0,0},
+	{"DI014", 1,0,0,0},
+	{"DI015", 1,0,0,0},
+	{"DO000", 2,0,0,0},
+	{"DO001", 2,0,0,0},
+	{"DO002", 2,0,0,0},
+	{"DO003", 2,0,0,0},
+	{"DO004", 2,0,0,0},
+	{"DO005", 2,0,0,0},
+	{"DO006", 2,0,0,0},
+	{"DO007", 2,0,0,0},
+	{"DO008", 2,0,0,0},
+	{"DO009", 2,0,0,0},
+	{"DO010", 2,0,0,0},
+	{"DO011", 2,0,0,0},
+	{"DO012", 2,0,0,0},
+	{"DO013", 2,0,0,0},
+	{"DO014", 2,0,0,0},
+	{"DO015", 2,0,0,0},
+	{"AIO001", 3,0,0,0},
+	{"AIO002", 3,0,0,0},
+	{"AIO003", 3,0,0,0},
+	{"AIO004", 3,0,0,0},
 };
-void loadanalog(int a,unsigned char c[])
+void LoadAnalog(int i)
 {
-	int i;
-	char d[4];
-	sprintf(d,"%x", a);
-	for (i = 0; i < 4; i++)
-	{
-		c[i] = d[i];
+	int e, f;
+	e = tab_ana[i] >> 8;
+	f = tab_ana[i] & 0x0ff;
+	source[i+32].H8 = (unsigned char)e;
+	source[i+32].L8 = (unsigned char)f;
+	return ;
 
-	}
 }
-int GetAnalogFromSource(unsigned char c[],int a)
+int Merge(int a,unsigned char b,unsigned char c)
 {
-	char *b;
-	b = (char*)malloc(sizeof(char)* 4);
-	sprintf(b,"%s", c);
-	a=strtol(b, NULL, 16);
-	printf("0x%x\n", a);
+	a = (b << 8) | c;
 	return a;
+
 }
 void Modbus_read_DI()
 {
@@ -103,7 +100,7 @@ void Modbus_read_DI()
    }
    for(i=0;i<=4;i++)
    {
-    loadanalog(tab_ana[i],source[i+32].data);
+     LoadAnalog(i);
    }
 }
 return;
@@ -228,7 +225,7 @@ int main()
         }
         if(i>15)
         {   int j;
-            j=GetAnalogFromSource(source[i+16].data,j);
+            j=Merge(j,source[i+16].H8,source[i+16].L8);
             num[i]=j;
         }
     }
@@ -255,7 +252,7 @@ int main()
            if(i>15)
             {
                 int a;
-                a=GetAnalogFromSource(source[i+16].data,a);
+                a=Merge(a,source[i+16].H8,source[i+16].L8);
                 if (a!=num[i])
                 {
                     Modbus_write(i,a);
@@ -267,6 +264,7 @@ int main()
 		if(source[i+16].state!=num[i])
            {
                 Modbus_write(i,0);
+
                 num[i]=source[i+16].state;
            }
            }
