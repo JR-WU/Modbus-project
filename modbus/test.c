@@ -9,69 +9,99 @@
 #define input 512
 #define output 768
 #define analog 640
-uint16_t tab_reg[1000000]={0};
-unsigned char tab_ana[1000000]={0};
+uint16_t tab_inp[1000]={0};
+uint16_t tab_oup[1000]={0};
+uint16_t tab_ana[1000]={0};
 modbus_t *ctx;
 typedef struct _DATA_SOURCE{
 	char* name;
-	unsigned char type;   // 1 stand for input, 2 stand for output,3 stand for analog.
+	unsigned char type;// 1 stands for input, 2 stands for output,3 stands for analog input,4 stands for analog output.
 	int state;//only two states,one is 0xAA,another is 0x55.
-	unsigned char datah8;//only for analog.High 8 bit.
-	unsigned char datal8;//Low 8 bit.
+	unsigned char H8;
+	unsigned char L8;
 }DATA_SOURCE;
 DATA_SOURCE source[] = {
-	{"DI000", 1,0,0},
-	{"DI001", 1,0,0},
-	{"DI002", 1,0,0},
-	{"DI003", 1,0,0},
-	{"DI004", 1,0,0},
-	{"DI005", 1,0,0},
-	{"DI006", 1,0,0},
-	{"DI007", 1,0,0},
-	{"DI008", 1,0,0},
-	{"DI009", 1,0,0},
-	{"DI010", 1,0,0},
-	{"DI011", 1,0,0},
-	{"DI012", 1,0,0},
-	{"DI013", 1,0,0},
-	{"DI014", 1,0,0},
-	{"DI015", 1,0,0},
-	{"DO000", 2,0,0},
-	{"DO001", 2,0,0},
-	{"DO002", 2,0,0},
-	{"DO003", 2,0,0},
-	{"DO004", 2,0,0},
-	{"DO005", 2,0,0},
-	{"DO006", 2,0,0},
-	{"DO007", 2,0,0},
-	{"DO008", 2,0,0},
-	{"DO009", 2,0,0},
-	{"DO010", 2,0,0},
-	{"DO011", 2,0,0},
-	{"DO012", 2,0,0},
-	{"DO013", 2,0,0},
-	{"DO014", 2,0,0},
-	{"DO015", 2,0,0},
-	{"AIO001", 3,0,0,0},
-	{"AIO002", 3,0,0,0},
-	{"AIO003", 3,0,0,0},
-	{"AIO004", 3,0,0,0}
+	{"DI000", 1,0,0,0},
+	{"DI001", 1,0,0,0},
+	{"DI002", 1,0,0,0},
+	{"DI003", 1,0,0,0},
+	{"DI004", 1,0,0,0},
+	{"DI005", 1,0,0,0},
+	{"DI006", 1,0,0,0},
+	{"DI007", 1,0,0,0},
+	{"DI008", 1,0,0,0},
+	{"DI009", 1,0,0,0},
+	{"DI010", 1,0,0,0},
+	{"DI011", 1,0,0,0},
+	{"DI012", 1,0,0,0},
+	{"DI013", 1,0,0,0},
+	{"DI014", 1,0,0,0},
+	{"DI015", 1,0,0,0},
+	{"DO000", 2,0,0,0},
+	{"DO001", 2,0,0,0},
+	{"DO002", 2,0,0,0},
+	{"DO003", 2,0,0,0},
+	{"DO004", 2,0,0,0},
+	{"DO005", 2,0,0,0},
+	{"DO006", 2,0,0,0},
+	{"DO007", 2,0,0,0},
+	{"DO008", 2,0,0,0},
+	{"DO009", 2,0,0,0},
+	{"DO010", 2,0,0,0},
+	{"DO011", 2,0,0,0},
+	{"DO012", 2,0,0,0},
+	{"DO013", 2,0,0,0},
+	{"DO014", 2,0,0,0},
+	{"DO015", 2,0,0,0},
+	{"AI001", 3,0,0,0},
+	{"AI002", 3,0,0,0},
+	{"AI003", 3,0,0,0},
+	{"AI004", 3,0,0,0},
+	{"AO001", 4,0,0,0},
+	{"AO002", 4,0,0,0},
+	{"AO003", 4,0,0,0},
+	{"AO004", 4,0,0,0},
 };
+void LoadAnalog(int i)
+{
+	int e, f;
+	e = tab_ana[i] >> 8;
+	f = tab_ana[i] & 0x0ff;
+	source[i+32].H8 = (unsigned char)e;
+	source[i+32].L8 = (unsigned char)f;
+	return ;
+
+}
+void LoadOutputAnalog(int i)
+{
+	int e, f;
+	e = tab_ana[i] >> 8;
+	f = tab_ana[i] & 0x0ff;
+	source[i+36].H8 = (unsigned char)e;
+	source[i+36].L8 = (unsigned char)f;
+	return ;
+
+}
+int Merge(int a,unsigned char b,unsigned char c)
+{
+	a = (b << 8) | c;
+	return a;
+
+}
 void Modbus_read_DI()
 {
-   int i,j;
-   j=0;
+   int i;
    while(1)
     {
-    modbus_read_registers(ctx,input,15,tab_reg);//function code is 0x04
-    modbus_read_registers(ctx,analog,3,tab_ana);//function code is 0x04
+    modbus_read_registers(ctx,input,16,tab_inp);//function code is 0x04
+    modbus_read_registers(ctx,analog,4,tab_ana);//function code is 0x04
    for(i=0;i<=15;i++)
    {
-       if(tab_reg[i]==85)
+       if(tab_inp[i]==85)
        {
            source[i].state=0;
        }
-       else if(tab_reg[i]==170)
+       else if(tab_inp[i]==170)
        {
            source[i].state=1;
        }
@@ -80,26 +110,33 @@ void Modbus_read_DI()
            source[i].state=WRONG;
        }
    }
-   for(i=0;i<=7;i=i+2)
+   for(i=0;i<=3;i++)
    {
-       source[j+32].datah8=tab_ana[i];
-       source[j+32].datal8=tab_ana[i+1];
-       j++;
+     LoadAnalog(i);
    }
 }
 return;
 }
+void Modbus_read_AO()
+{
+    int i;
+     for(i=0;i<=3;i++)
+   {
+     LoadOutputAnalog(i);
+   }
+
+}
 void Modbus_read_DO()
 {
    int i;
-    modbus_read_registers(ctx,output,16,tab_reg);//function code is 0x04
+   modbus_read_registers(ctx,output,16,tab_oup);//function code is 0x04
    for(i=0;i<=15;i++)
    {
-       if(tab_reg[i]==85)
+       if(tab_oup[i]==85)
        {
            source[i+16].state=0;
        }
-       else if(tab_reg[i]==170)
+       else if(tab_oup[i]==170)
        {
            source[i+16].state=1;
        }
@@ -109,10 +146,10 @@ void Modbus_read_DO()
        }
    }
 }
-void Modbus_write(int i)
-{   if(i>=16)
+void Modbus_write(int i,int a)
+{   if(i>15)
     {
-        modbus_write_register(ctx,analog+i-16,source[i+16].data);
+        modbus_write_register(ctx,analog+i-16,a);
         return;
     }
     else if(source[i+16].state==1)
@@ -124,6 +161,7 @@ void Modbus_write(int i)
         modbus_write_register(ctx,output+i,0x55);
     }
 }
+
 /**
 void Modbus_write(int i)
 {   int a=768;
@@ -199,10 +237,19 @@ int main()
     printf("Create pthread error!\n");
     exit(1);
 }
-    int num[100],i;
-    for(i=0;i<=15;i++)
+   	int num[100],i;
+   	Modbus_read_AO();
+    for(i=0;i<=19;i++)
     {
+        if(i<=15)
+        {
         num[i]=source[i+16].state;
+        }
+        if(i>15)
+        {   int j;
+            j=Merge(j,source[i+20].H8,source[i+20].L8);
+            num[i]=j;
+        }
     }
 
    while(1)
@@ -223,24 +270,25 @@ int main()
        }
        **/
        for(i=0;i<=19;i++)
-       {   /**
-           if(i>=16)
+       {
+           if(i>15)
             {
-                if(source[i+16].data!=num[i])
+                int a;
+                a=Merge(a,source[i+20].H8,source[i+20].L8);
+                if (a!=num[i])
                 {
-                    Modbus_write(i);
-                    pthread_create(&read,NULL,(void*)Modbus_read_DI,NULL);
-                    num[i]=source[i+16].data;
-                    printfdata();
+                    Modbus_write(i,a);
+                    num[i]=a;
                 }
             }
-            **/
-            if(source[i+16].state!=num[i])
+           else if(i<=15){
+
+		if(source[i+16].state!=num[i])
            {
-                Modbus_write(i);
-                pthread_create(&read,NULL,(void*)Modbus_read_DI,NULL);
+                Modbus_write(i,0);
+
                 num[i]=source[i+16].state;
-                printfdata();
+           }
            }
        }
 
