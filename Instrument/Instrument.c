@@ -856,7 +856,7 @@ void SendData(int a,int b,int j)       //
 void SendDataAO(float a,int b,int j)
 {
 	int val;
-	val=(int)a*65536/5000;
+	val=(int)(a*65536/5000);
 	uint8_t H=((val>>8)&0xff);
 	uint8_t L=(val&0xff);
 	
@@ -867,6 +867,8 @@ void SendDataAO(float a,int b,int j)
     uint8_t Recv_buf[1024];
     err=send(sockfd1,Send_buf,7,0);
     recv(sockfd1,Recv_buf,7,0);
+	close(sockfd);
+	sockfd=Initialization(sockfd,&local);
     if(err < 0)
 	{
        perror("send");
@@ -944,17 +946,21 @@ void ReadData()
             }
 			}
 		}
-		for(i=0;i<16;i++)
+		for(i=0;i<4;i++)
 		{
 			for(j=8;j<10;j++)
 			{
 				e = (input+2*i) >> 8;
 				f = (input+2*i) & 0x0ff;
+				Send_buf1[0] = j;
 				Send_buf1[2] = e;
 				Send_buf1[3] = f;
 				ret=send(sockfd,Send_buf1,6,0);
 				recv(sockfd,Recv_buf1,MAX_NUM,0);
 				uint8_t L1=Recv_buf1[2];
+				printf("L1=%x,",L1);
+				close(sockfd);
+				sockfd=Initialization(sockfd,&local);
 				
 				e = (input+2*i+1) >> 8;
 				f = (input+2*i+1) & 0x0ff;
@@ -963,10 +969,12 @@ void ReadData()
 				ret=send(sockfd,Send_buf1,6,0);
 				recv(sockfd,Recv_buf1,MAX_NUM,0);
 				uint8_t H1=Recv_buf1[2];
+				printf("H1=%x",H1);
 				
 				VAL1=(H1<<8)|L1;
 				U1=(float)VAL1*0.1875;
 				I1=U1/250;
+				printf("VAL1=%d,U1=%f,I1=%f\n",VAL1,U1,I1);
 				close(sockfd);
 				sockfd=Initialization(sockfd,&local);
 				switch(j)
@@ -1041,12 +1049,13 @@ void ReadDataDO()
                 }		
         }
 		
-		for(i=0;i<16;i++)
+		for(i=0;i<4;i++)
 		{
 			for(j=10;j<12;j++)
 			{
 				e = (output+2*i) >> 8;
 				f = (output+2*i) & 0x0ff;
+				Send_buf2[0] = j;
 				Send_buf2[2] = e;
 				Send_buf2[3] = f;
 				send(sockfd,Send_buf2,6,0);
@@ -1103,12 +1112,12 @@ void Write()
     {
         num3[i]=DO3[i].state;
     }
-    for(i=0;i<LINE_NUM;i++)
+    for(i=0;i<4;i++)
     {
         num4[i]=AO0[i].Udata;
 		num5[i]=AO0[i].Idata;
     }
-    for(i=0;i<LINE_NUM;i++)
+    for(i=0;i<4;i++)
     {
         num6[i]=AO1[i].Udata;
 		num7[i]=AO1[i].Idata;
@@ -1155,7 +1164,7 @@ void Write()
                         }
                     }
                     j=10;
-            case 10:for(i=0;i<LINE_NUM;i++)
+            case 10:for(i=0;i<4;i++)
                     {
                         if(AO0[i].Udata!=num4[i])
                         {
@@ -1170,7 +1179,7 @@ void Write()
                         }
                     }
                     j++;
-            case 11:for(i=0;i<LINE_NUM;i++)
+            case 11:for(i=0;i<4;i++)
                     {
                         if(AO1[i].Udata!=num6[i])
                         {
@@ -1202,13 +1211,13 @@ int main()
         perror("Mutex initialization failed");
         exit(EXIT_FAILURE);
         }
-       // ret=pthread_create(&read,NULL,(void*)ReadData,NULL);
-     //   ret1=pthread_create(&write,NULL,(void*)Write,NULL);
+        ret=pthread_create(&read,NULL,(void*)ReadData,NULL);
+        ret1=pthread_create(&write,NULL,(void*)Write,NULL);
 		ret2=pthread_create(&opcua_server_id,NULL,(void *)handle_opcua_server,NULL);
 		if(ret!=0||ret1!=0||ret2!=0)
         {
-		printf("Create pthread error!\n");
-     //   exit(1);
+			printf("Create pthread error!\n");
+			exit(1);
         }
         while(1);
         return 0;
