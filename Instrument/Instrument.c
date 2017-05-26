@@ -817,12 +817,12 @@ void SendData(int a,int b,int j)       //
     {
         uint8_t Send_buf[] = {j, 0x06, e,f, 0xAA, 0x00,0x00};
         uint8_t Recv_buf[1024];
-        printf("%d,%d,%d,%d,%d,%d,%d\n",Send_buf[0],Send_buf[1],Send_buf[2],Send_buf[3],Send_buf[4],Send_buf[5],Send_buf[6]);
-        printf("%d\n",sockfd1);
+     //   printf("%d,%d,%d,%d,%d,%d,%d\n",Send_buf[0],Send_buf[1],Send_buf[2],Send_buf[3],Send_buf[4],Send_buf[5],Send_buf[6]);
+     //   printf("%d\n",sockfd1);
         err=send(sockfd1,Send_buf,7,0);
         recv(sockfd1,Recv_buf,7,0);
-        printf("%d,%d,%d,%d,%d,%d,%d\n",Recv_buf[0],Recv_buf[1],Recv_buf[2],Recv_buf[3],Recv_buf[4],Recv_buf[5],Recv_buf[6]);
-        printf("%d\n",sockfd1);
+    //    printf("%d,%d,%d,%d,%d,%d,%d\n",Recv_buf[0],Recv_buf[1],Recv_buf[2],Recv_buf[3],Recv_buf[4],Recv_buf[5],Recv_buf[6]);
+    //    printf("%d\n",sockfd1);
         if(err < 0)
         {
             perror("send");
@@ -830,17 +830,17 @@ void SendData(int a,int b,int j)       //
         }
         close(sockfd1);
         sockfd1=Initialization(sockfd1,&local);
-        printf("%d\n",sockfd1);
+     //   printf("%d\n",sockfd1);
     }
     else if(a==0)
     {
         uint8_t Send_buf[] = {j, 0x06, e,f, 0x55, 0x00,0x00};
         uint8_t Recv_buf[1024];
-        printf("%d,%d,%d,%d,%d,%d,%d\n",Send_buf[0],Send_buf[1],Send_buf[2],Send_buf[3],Send_buf[4],Send_buf[5],Send_buf[6]);
-        printf("%d\n",sockfd1);
+     //   printf("%d,%d,%d,%d,%d,%d,%d\n",Send_buf[0],Send_buf[1],Send_buf[2],Send_buf[3],Send_buf[4],Send_buf[5],Send_buf[6]);
+     //   printf("%d\n",sockfd1);
         err=send(sockfd1,Send_buf,7,0);
         recv(sockfd1,Recv_buf,7,0);
-        printf("%d,%d,%d,%d,%d,%d,%d\n",Recv_buf[0],Recv_buf[1],Recv_buf[2],Recv_buf[3],Recv_buf[4],Recv_buf[5],Recv_buf[6]);
+    //    printf("%d,%d,%d,%d,%d,%d,%d\n",Recv_buf[0],Recv_buf[1],Recv_buf[2],Recv_buf[3],Recv_buf[4],Recv_buf[5],Recv_buf[6]);
         printf("%d\n",sockfd1);
         if(err < 0)
         {
@@ -849,7 +849,7 @@ void SendData(int a,int b,int j)       //
         }
         close(sockfd1);
         sockfd1=Initialization(sockfd1,&local);
-        printf("%d\n",sockfd1);
+    //    printf("%d\n",sockfd1);
     }
 }
 
@@ -958,7 +958,7 @@ void ReadData()
 				ret=send(sockfd,Send_buf1,6,0);
 				recv(sockfd,Recv_buf1,MAX_NUM,0);
 				uint8_t L1=Recv_buf1[2];
-				printf("L1=%x,",L1);
+			//	printf("L1=%x,",L1);
 				close(sockfd);
 				sockfd=Initialization(sockfd,&local);
 				
@@ -969,12 +969,12 @@ void ReadData()
 				ret=send(sockfd,Send_buf1,6,0);
 				recv(sockfd,Recv_buf1,MAX_NUM,0);
 				uint8_t H1=Recv_buf1[2];
-				printf("H1=%x",H1);
+			//	printf("H1=%x",H1);
 				
 				VAL1=(H1<<8)|L1;
 				U1=(float)VAL1*0.1875;
 				I1=U1/250;
-				printf("VAL1=%d,U1=%f,I1=%f\n",VAL1,U1,I1);
+			//	printf("VAL1=%d,U1=%f,I1=%f\n",VAL1,U1,I1);
 				close(sockfd);
 				sockfd=Initialization(sockfd,&local);
 				switch(j)
@@ -1012,7 +1012,7 @@ void ReadDataDO()
 					Send_buf2[3] = d;
                     send(sockfd1,Send_buf2,6,0);
                     recv(sockfd1,Recv_buf2,MAX_NUM,0);
-                    printf("%d",Recv_buf2[2]);
+             //       printf("%d",Recv_buf2[2]);
                     close(sockfd1);
                     sockfd1=Initialization(sockfd1,&local);
                     if(Recv_buf2[2]==170)
@@ -1168,13 +1168,18 @@ void Write()
                     {
                         if(AO0[i].Udata!=num4[i])
                         {
-							SendDataAO(AO0[i].Udata,output+2*i,j);
+							if(AO0[i].Udata>5000.0)
+								AO0[i].Udata=5000.0;
+							AO0[i].Idata=AO0[i].Udata/250;
+							SendDataAO(AO0[i].Udata,output+4*i,j);
 							num4[i]=AO0[i].Udata;
                         }
 						if(AO0[i].Idata!=num5[i])
                         {
-							
-							SendDataAO(AO0[i].Idata*250,output+2*i,j);
+							if(AO0[i].Idata>20.0)
+								AO0[i].Idata=20.0;
+							AO0[i].Udata=AO0[i].Idata*250;
+							SendDataAO(AO0[i].Idata*250,output+4*i,j);
 							num4[i]=AO0[i].Idata;
                         }
                     }
@@ -1183,13 +1188,18 @@ void Write()
                     {
                         if(AO1[i].Udata!=num6[i])
                         {
-							SendDataAO(AO1[i].Udata,output+2*i,j);
+							if(AO1[i].Udata>5000.0)
+								AO1[i].Udata=5000.0;
+							AO1[i].Idata=AO1[i].Udata/250;
+							SendDataAO(AO1[i].Udata,output+4*i,j);
 							num6[i]=AO1[i].Udata;
                         }
 						if(AO1[i].Idata!=num7[i])
                         {
-							
-							SendDataAO(AO1[i].Idata*250,output+2*i,j);
+							if(AO1[i].Idata>20.0)
+								AO1[i].Idata=20.0;
+							AO1[i].Udata=AO1[i].Idata*250;
+							SendDataAO(AO1[i].Idata*250,output+4*i,j);
 							num7[i]=AO1[i].Idata;
                         }
                     }
